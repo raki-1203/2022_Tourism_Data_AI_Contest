@@ -1,3 +1,8 @@
+# etc
+.DS_Store
+.idea/
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
