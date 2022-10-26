@@ -207,7 +207,8 @@ class Trainer:
         self.logger.info(f'Model Saved at {output_path}')
         self.best_model_folder = output_path
 
-        wandb.log({'eval/best_f1_score': self.best_valid_f1_score})
+        if self.args.wandb:
+            wandb.log({'eval/best_f1_score': self.best_valid_f1_score})
 
     def predict(self):
         model_state_dict = torch.load(os.path.join(self.args.saved_model_path, 'model_state_dict.pt'),
