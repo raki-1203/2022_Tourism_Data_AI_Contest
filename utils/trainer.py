@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import AutoTokenizer
 from albumentations.pytorch.transforms import ToTensorV2
 
-from utils.custom_dataset import MultiModelDataset
-from utils.custom_model import MultiModalModel
+from utils.custom_dataset import MultiModelDataset, NLPDataset
+from utils.custom_model import MultiModalModel, NLPModel
 from utils.loss import RDropLoss
 
 
@@ -27,22 +27,23 @@ class Trainer:
 
         self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
 
-        self.train_transform = A.Compose([
-            A.HorizontalFlip(p=0.5),
-            A.ImageCompression(quality_lower=99, quality_upper=100),
-            A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=10, border_mode=0, p=0.7),
-            A.Resize(args.img_size, args.img_size),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0,
-                        always_apply=False, p=1.0),
-            ToTensorV2(),
-        ])
-        self.valid_transform = A.Compose([
-            A.ImageCompression(quality_lower=99, quality_upper=100),
-            A.Resize(args.img_size, args.img_size),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0,
-                        always_apply=False, p=1.0),
-            ToTensorV2(),
-        ])
+        if args.method != 'nlp':
+            self.train_transform = A.Compose([
+                A.HorizontalFlip(p=0.5),
+                A.ImageCompression(quality_lower=99, quality_upper=100),
+                A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=10, border_mode=0, p=0.7),
+                A.Resize(args.img_size, args.img_size),
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0,
+                            always_apply=False, p=1.0),
+                ToTensorV2(),
+            ])
+            self.valid_transform = A.Compose([
+                A.ImageCompression(quality_lower=99, quality_upper=100),
+                A.Resize(args.img_size, args.img_size),
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0,
+                            always_apply=False, p=1.0),
+                ToTensorV2(),
+            ])
 
         # load dataset setting
         if args.is_train:
@@ -50,17 +51,33 @@ class Trainer:
             train_df = df.iloc[train_idx]
             valid_df = df.iloc[valid_idx]
 
-            train_dataset = MultiModelDataset(args, train_df, self.tokenizer, self.train_transform)
+            if args.method == 'multimodal':
+                train_dataset = MultiModelDataset(args, train_df, self.tokenizer, self.train_transform)
+                valid_dataset = MultiModelDataset(args, valid_df, self.tokenizer, self.valid_transform)
+            elif args.method == 'nlp':
+                train_dataset = NLPDataset(args, train_df, self.tokenizer)
+                valid_dataset = NLPDataset(args, valid_df, self.tokenizer)
+            else:
+                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
             self.train_loader = train_dataset.loader
-            valid_dataset = MultiModelDataset(args, valid_df, self.tokenizer, self.valid_transform)
             self.valid_loader = valid_dataset.loader
 
             self.step_per_epoch = len(self.train_loader)
         else:
-            test_dataset = MultiModelDataset(args, df, self.tokenizer, self.valid_transform, is_test=True)
+            if args.method == 'multimodal':
+                test_dataset = MultiModelDataset(args, df, self.tokenizer, self.valid_transform, is_test=True)
+            elif args.method == 'nlp':
+                test_dataset = NLPDataset(args, df, self.tokenizer, is_test=True)
+            else:
+                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
             self.test_loader = test_dataset.loader
 
-        self.model = MultiModalModel(self.args)
+        if args.method == 'multimodal':
+            self.model = MultiModalModel(self.args)
+        elif args.method == 'nlp':
+            self.model = NLPModel(self.args)
+        else:
+            raise NotImplementedError('args.method 를 잘 선택 해주세요.')
         self.model.to(args.device)
 
         self.supervised_loss = nn.CrossEntropyLoss()
@@ -86,8 +103,7 @@ class Trainer:
 
         train_iterator = tqdm(self.train_loader, desc='Train Iteration')
         for step, batch in enumerate(train_iterator):
-            batch = {key: b.to(self.args.device)
-                     for key, b in zip(['input_ids', 'attention_mask', 'image', 'label'], batch)}
+            batch = self.batch_to_device(batch)
 
             total_step = epoch * self.step_per_epoch + step
 
@@ -153,8 +169,7 @@ class Trainer:
         label_list = []
         with torch.no_grad():
             for step, batch in enumerate(valid_iterator):
-                batch = {key: b.to(self.args.device)
-                         for key, b in zip(['input_ids', 'attention_mask', 'image', 'label'], batch)}
+                batch = self.batch_to_device(batch)
 
                 logits = self.model(batch)
 
@@ -209,6 +224,19 @@ class Trainer:
 
         if self.args.wandb:
             wandb.log({'eval/best_f1_score': self.best_valid_f1_score})
+
+    def batch_to_device(self, batch):
+        if self.args.method == 'multimodal':
+            batch = {key: b.to(self.args.device)
+                     for key, b in zip(['input_ids', 'attention_mask', 'image', 'label'], batch)}
+        elif self.args.method == 'nlp':
+            batch = {key: b.to(self.args.device)
+                     for key, b in zip(['input_ids', 'attention_mask', 'label'], batch)}
+        else:
+            raise NotImplementedError('args.method 를 잘 선택 해주세요.')
+
+        return batch
+
 
     def predict(self):
         model_state_dict = torch.load(os.path.join(self.args.saved_model_path, 'model_state_dict.pt'),

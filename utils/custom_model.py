@@ -6,6 +6,28 @@ import torch.nn.functional as F
 from transformers import AutoConfig, RobertaModel
 
 
+class NLPModel(nn.Module):
+
+    def __init__(self, args):
+        super(NLPModel, self).__init__()
+        self.args = args
+
+        self.text_model_config = AutoConfig.from_pretrained(args.text_model_name_or_path, num_labels=args.num_labels)
+        self.text_model = RobertaModel.from_pretrained(args.text_model_name_or_path,
+                                                       config=self.text_model_config)
+        self.text_classifier = RobertaClassificationHead(self.text_model_config)
+
+    def forward(self, batch):
+        text_output = self.text_model(input_ids=batch['input_ids'],
+                                      attention_mask=batch['attention_mask'])
+
+        # text last_hidden_state.shape : (BS, SEQ_LEN, HIDDEN)
+        text_last_hidden_state = text_output.last_hidden_state
+        x = self.text_classifier(text_last_hidden_state)
+
+        return x
+
+
 class MultiModalModel(nn.Module):
 
     def __init__(self, args):
