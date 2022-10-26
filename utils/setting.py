@@ -24,6 +24,7 @@ class Arguments:
 
     def add_hyper_parameters(self):
         self.add_argument('--method', type=str, default='multimodal', choices=('multimodal', 'nlp'))
+        self.add_argument('--optimizer', type=str, default='AdamW', choices=('AdamW', 'MADGRAD'))
         self.add_argument('--text_model_name_or_path', type=str, default='klue/roberta-base')
         self.add_argument('--image_model_name_or_path', type=str, default='efficientnet_b0')
         self.add_argument('--max_seq_len', type=int, default=512)

@@ -17,6 +17,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from utils.custom_dataset import MultiModelDataset, NLPDataset
 from utils.custom_model import MultiModalModel, NLPModel
 from utils.loss import RDropLoss
+from utils.optimizer import MADGRAD
 
 
 class Trainer:
@@ -197,7 +198,12 @@ class Trainer:
             {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)],
              'weight_decay': 0.0}
         ]
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.args.lr)
+        if self.args.optimizer == 'AdamW':
+            optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.args.lr)
+        elif self.args.optimizer == 'MADGRAD':
+            optimizer = MADGRAD(optimizer_grouped_parameters, lr=self.args.lr)
+        else:
+            raise NotImplementedError('args.optimizer 를 잘 선택 해주세요.')
 
         return optimizer
 
