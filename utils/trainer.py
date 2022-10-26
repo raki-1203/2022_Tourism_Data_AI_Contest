@@ -249,8 +249,7 @@ class Trainer:
         probs_list = []
         with torch.no_grad():
             for step, batch in enumerate(test_iterator):
-                batch = {key: b.to(self.args.device)
-                         for key, b in zip(['input_ids', 'attention_mask', 'image'], batch)}
+                batch = self.batch_to_device(batch)
 
                 logits = self.model(batch)
                 probs_list.append(logits.detach().cpu().numpy())

@@ -133,7 +133,10 @@ class CollateNLP:
             b_labels = []
 
         for b in batches:
-            text = b[0]
+            if self.is_test:
+                text = b
+            else:
+                text = b[0]
             text_ids = self.tokenizer.encode(text)
 
             # truncate
@@ -143,7 +146,7 @@ class CollateNLP:
                 text_ids = text_ids[:limit]
 
             # ids, mask
-            input_ids = [self.tokenizer.bos_token_id] + text_ids + [self.tokenizer.eos_token_id]
+            input_ids = text_ids
             input_attention_mask = [1] * len(input_ids)
 
             # padding, max_padding 을 해야만 여러 batch 를 inference 했을 때 같은 결과값이 나옴
