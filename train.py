@@ -33,7 +33,7 @@ if __name__ == '__main__':
                 continue
 
         if args.wandb:
-            name = f'{args.method}_LR{args.lr}_WD{args.weight_decay}_IMG_SIZE{args.img_size}_RDROP{args.rdrop_coef}_FOLD{args.fold}'
+            name = f'{args.method}_{args.output_path.split("/")[-1]}_FOLD{args.fold}'
             wandb.init(project='2022 관광데이터 AI 경진대회',
                        name=name,
                        config=vars(args),
