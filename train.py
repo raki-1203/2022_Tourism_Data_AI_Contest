@@ -28,10 +28,6 @@ if __name__ == '__main__':
             if fold > 1:
                 break
 
-        if args.cv:
-            if fold < 2:
-                continue
-
         if args.wandb:
             name = f'{args.method}_{args.output_path.split("/")[-1]}_FOLD{args.fold}'
             wandb.init(project='2022 관광데이터 AI 경진대회',

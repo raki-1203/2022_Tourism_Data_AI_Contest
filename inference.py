@@ -15,11 +15,8 @@ def main():
     df = pd.read_csv(args.text_path_to_test_data)
     df['img_path'] = df['id'].apply(lambda x: os.path.join(args.image_path_to_test_data, x + '.jpg'))
 
-    if args.cv:
-        model_list = glob(os.path.join(args.output_path, '*'))
-        model_list = sorted(model_list)
-    else:
-        model_list = glob(os.path.join(args.output_path, '*'))
+    model_list = glob(os.path.join(args.output_path, '*'))
+    model_list = sorted(model_list)
 
     output_probs = np.zeros((df.shape[0], args.num_labels))
     for i, model_name in enumerate(model_list, start=1):
