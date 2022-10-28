@@ -23,7 +23,7 @@ class Arguments:
         self.add_argument('--wandb', action='store_true')
 
     def add_hyper_parameters(self):
-        self.add_argument('--method', type=str, default='multimodal', choices=('multimodal', 'nlp'))
+        self.add_argument('--method', type=str, default='multimodal', choices=('multimodal', 'nlp', 'image'))
         self.add_argument('--optimizer', type=str, default='AdamW', choices=('AdamW', 'MADGRAD'))
         self.add_argument('--text_model_name_or_path', type=str, default='klue/roberta-base')
         self.add_argument('--image_model_name_or_path', type=str, default='efficientnet_b0')
@@ -41,6 +41,7 @@ class Arguments:
         self.add_argument('--patience', type=int, default=5)
         self.add_argument('--num_labels', type=int, default=128)
         self.add_argument('--img_size', type=int, default=128)
+        self.add_argument('--token_type_ids', action='store_true')
 
     def add_data_parameters(self):
         self.add_argument('--text_path_to_train_data', type=str, default='./data/train.csv')

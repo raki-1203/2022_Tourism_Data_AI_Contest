@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import AutoTokenizer
 from albumentations.pytorch.transforms import ToTensorV2
 
-from utils.custom_dataset import MultiModelDataset, NLPDataset
-from utils.custom_model import MultiModalModel, NLPModel
+from utils.custom_dataset import MultiModelDataset, NLPDataset, ImageDataset
+from utils.custom_model import MultiModalModel, NLPModel, ImageModel
 from utils.loss import RDropLoss
 from utils.optimizer import MADGRAD
 
@@ -25,8 +25,6 @@ class Trainer:
     def __init__(self, args, logger, df, splits=None):
         self.args = args
         self.logger = logger
-
-        self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
 
         if args.method != 'nlp':
             self.train_transform = A.Compose([
@@ -45,38 +43,18 @@ class Trainer:
                             always_apply=False, p=1.0),
                 ToTensorV2(),
             ])
+        elif args.method != 'image':
+            self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
 
         # load dataset setting
-        if args.is_train:
-            train_idx, valid_idx = splits
-            train_df = df.iloc[train_idx]
-            valid_df = df.iloc[valid_idx]
-
-            if args.method == 'multimodal':
-                train_dataset = MultiModelDataset(args, train_df, self.tokenizer, self.train_transform)
-                valid_dataset = MultiModelDataset(args, valid_df, self.tokenizer, self.valid_transform)
-            elif args.method == 'nlp':
-                train_dataset = NLPDataset(args, train_df, self.tokenizer)
-                valid_dataset = NLPDataset(args, valid_df, self.tokenizer)
-            else:
-                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
-            self.train_loader = train_dataset.loader
-            self.valid_loader = valid_dataset.loader
-
-            self.step_per_epoch = len(self.train_loader)
-        else:
-            if args.method == 'multimodal':
-                test_dataset = MultiModelDataset(args, df, self.tokenizer, self.valid_transform, is_test=True)
-            elif args.method == 'nlp':
-                test_dataset = NLPDataset(args, df, self.tokenizer, is_test=True)
-            else:
-                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
-            self.test_loader = test_dataset.loader
+        self.make_datasets(splits, df, is_train=args.is_train)
 
         if args.method == 'multimodal':
             self.model = MultiModalModel(self.args)
         elif args.method == 'nlp':
             self.model = NLPModel(self.args)
+        elif args.method == 'image':
+            self.model = ImageModel(self.args)
         else:
             raise NotImplementedError('args.method 를 잘 선택 해주세요.')
         self.model.to(args.device)
@@ -93,6 +71,38 @@ class Trainer:
 
         self.best_valid_f1_score = 0
         self.best_model_folder = None
+
+    def make_datasets(self, splits, df, is_train):
+        if is_train:
+            train_idx, valid_idx = splits
+            train_df = df.iloc[train_idx]
+            valid_df = df.iloc[valid_idx]
+
+            if self.args.method == 'multimodal':
+                train_dataset = MultiModelDataset(self.args, train_df, self.tokenizer, self.train_transform)
+                valid_dataset = MultiModelDataset(self.args, valid_df, self.tokenizer, self.valid_transform)
+            elif self.args.method == 'nlp':
+                train_dataset = NLPDataset(self.args, train_df, self.tokenizer)
+                valid_dataset = NLPDataset(self.args, valid_df, self.tokenizer)
+            elif self.args.method == 'image':
+                train_dataset = ImageDataset(self.args, train_df, self.train_transform)
+                valid_dataset = ImageDataset(self.args, valid_df, self.valid_transform)
+            else:
+                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
+            self.train_loader = train_dataset.loader
+            self.valid_loader = valid_dataset.loader
+
+            self.step_per_epoch = len(self.train_loader)
+        else:
+            if self.args.method == 'multimodal':
+                test_dataset = MultiModelDataset(self.args, df, self.tokenizer, self.valid_transform, is_test=True)
+            elif self.args.method == 'nlp':
+                test_dataset = NLPDataset(self.args, df, self.tokenizer, is_test=True)
+            elif self.args.method == 'image':
+                test_dataset = ImageDataset(self.args, df, self.valid_transform, is_test=True)
+            else:
+                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
+            self.test_loader = test_dataset.loader
 
     def train_epoch(self, epoch):
         self.train_loss.reset()
@@ -232,17 +242,8 @@ class Trainer:
             wandb.log({'eval/best_f1_score': self.best_valid_f1_score})
 
     def batch_to_device(self, batch):
-        if self.args.method == 'multimodal':
-            batch = {key: b.to(self.args.device)
-                     for key, b in zip(['input_ids', 'attention_mask', 'image', 'label'], batch)}
-        elif self.args.method == 'nlp':
-            batch = {key: b.to(self.args.device)
-                     for key, b in zip(['input_ids', 'attention_mask', 'label'], batch)}
-        else:
-            raise NotImplementedError('args.method 를 잘 선택 해주세요.')
-
+        batch = {k: v.to(self.args.device) for k, v in batch.items()}
         return batch
-
 
     def predict(self):
         model_state_dict = torch.load(os.path.join(self.args.saved_model_path, 'model_state_dict.pt'),

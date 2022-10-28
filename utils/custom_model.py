@@ -19,11 +19,27 @@ class NLPModel(nn.Module):
 
     def forward(self, batch):
         text_output = self.text_model(input_ids=batch['input_ids'],
-                                      attention_mask=batch['attention_mask'])
+                                      attention_mask=batch['attention_mask'],
+                                      token_type_ids=batch['token_type_ids'] if self.args.token_type_ids else None)
 
         # text last_hidden_state.shape : (BS, SEQ_LEN, HIDDEN)
         text_last_hidden_state = text_output.last_hidden_state
         x = self.text_classifier(text_last_hidden_state)
+
+        return x
+
+
+class ImageModel(nn.Module):
+
+    def __init__(self, args):
+        super(ImageModel, self).__init__()
+        self.args = args
+
+        self.image_model = timm.create_model(args.image_model_name_or_path, pretrained=True,
+                                             num_classes=args.num_labels)
+
+    def forward(self, batch):
+        x = self.image_model(batch['image'])
 
         return x
 
@@ -46,7 +62,8 @@ class MultiModalModel(nn.Module):
 
     def forward(self, batch):
         text_output = self.text_model(input_ids=batch['input_ids'],
-                                      attention_mask=batch['attention_mask'])
+                                      attention_mask=batch['attention_mask'],
+                                      token_type_ids=batch['token_type_ids'] if self.args.token_type_ids else None)
 
         # text last_hidden_state.shape : (BS, SEQ_LEN, HIDDEN)
         text_last_hidden_state = text_output.last_hidden_state

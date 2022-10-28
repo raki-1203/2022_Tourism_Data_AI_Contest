@@ -5,6 +5,7 @@ import pandas as pd
 
 from glob import glob
 
+from utils.data_preprocessing import get_df
 from utils.setting import Setting
 from utils.trainer import Trainer
 
@@ -12,8 +13,7 @@ from utils.trainer import Trainer
 def main():
     args, logger = Setting().run()
 
-    df = pd.read_csv(args.text_path_to_test_data)
-    df['img_path'] = df['id'].apply(lambda x: os.path.join(args.image_path_to_test_data, x + '.jpg'))
+    df = get_df(args)
 
     model_list = glob(os.path.join(args.output_path, '*'))
     model_list = sorted(model_list)

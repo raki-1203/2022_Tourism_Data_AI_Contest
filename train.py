@@ -1,11 +1,9 @@
-import os
-
 import numpy as np
-import pandas as pd
 import wandb
 
 from sklearn.model_selection import StratifiedKFold
 
+from utils.data_preprocessing import get_df
 from utils.setting import Setting
 from utils.trainer import Trainer
 
@@ -13,9 +11,7 @@ if __name__ == '__main__':
 
     args, logger = Setting().run()
 
-    df = pd.read_csv(args.text_path_to_train_data)
-    df['img_path'] = df['id'].apply(lambda x: os.path.join(args.image_path_to_train_data, x + '.jpg'))
-    df['label'] = df['cat3'].map(args.label_to_idx)
+    df = get_df(args)
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=args.seed)
 
