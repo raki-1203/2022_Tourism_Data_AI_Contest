@@ -22,8 +22,10 @@
 #python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 1 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_base_cv --method nlp --text_model_name_or_path klue/roberta-base --max_seq_len 256 --train_batch_size 32
 #python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_base_cv --predict_path ./predict/nlp_preprocessed_text_base_cv --method nlp --text_model_name_or_path klue/roberta-base
 
-# nlp preprocessed text monologg/koelectra-base-v3-discriminator model CrossValidation Train
-python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 1 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_electra_cv --method nlp --text_model_name_or_path monologg/koelectra-base-v3-discriminator --max_seq_len 256 --train_batch_size 32 --token_type_ids
-python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_electra_cv --predict_path ./predict/nlp_preprocessed_text_electra_cv --method nlp --text_model_name_or_path monologg/koelectra-base-v3-discriminator --token_type_ids
+# nlp preprocessed text klue/roberta-base model LabelSmoothing CrossValidation Train
+#python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 1 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_label_smoothing_cv --method nlp --text_model_name_or_path klue/roberta-base --max_seq_len 256 --train_batch_size 32 --loss LabelSmoothing
+#python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_label_smoothing_cv --predict_path ./predict/nlp_preprocessed_text_label_smoothing_cv --method nlp --text_model_name_or_path klue/roberta-base
 
-
+# multimodal CrossValidation Train
+python train.py --is_train --use_amp --device 1 --epochs 15 --accumulation_steps 8 --cv --wandb --output_path ./saved_model/multimodal_preprocessed_label_smoothing_cv --method multimodal --max_seq_len 256 --loss LabelSmoothing --train_batch_size 32
+python inference.py --device 1 --output_path ./saved_model/multimodal_preprocessed_label_smoothing_cv --predict_path ./predict/multimodal_preprocessed_label_smoothing_cv --method multimodal

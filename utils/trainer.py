@@ -16,7 +16,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 
 from utils.custom_dataset import MultiModelDataset, NLPDataset, ImageDataset
 from utils.custom_model import MultiModalModel, NLPModel, ImageModel
-from utils.loss import RDropLoss
+from utils.loss import RDropLoss, LabelSmoothingLoss
 from utils.optimizer import MADGRAD
 
 
@@ -43,8 +43,7 @@ class Trainer:
                             always_apply=False, p=1.0),
                 ToTensorV2(),
             ])
-        elif args.method != 'image':
-            self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
 
         # load dataset setting
         self.make_datasets(splits, df, is_train=args.is_train)
@@ -59,7 +58,7 @@ class Trainer:
             raise NotImplementedError('args.method 를 잘 선택 해주세요.')
         self.model.to(args.device)
 
-        self.supervised_loss = nn.CrossEntropyLoss()
+        self.supervised_loss = self.get_loss()
         self.rdrop_loss = RDropLoss()
 
         self.optimizer = self._get_optimizer()
@@ -267,6 +266,14 @@ class Trainer:
         probs_list = np.vstack(probs_list)
 
         return preds_list, probs_list
+
+    def get_loss(self):
+        if self.args.loss == 'LabelSmoothing':
+            loss = LabelSmoothingLoss(classes=self.args.num_labels, smoothing=0.8)
+        else:
+            loss = nn.CrossEntropyLoss()
+
+        return loss
 
 
 class AverageMeter(object):
