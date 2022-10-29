@@ -185,7 +185,7 @@ class ImageDataset(Dataset):
         if self.is_test:
             return {'image': image}
         else:
-            label = self.df['label'].iloc[idx]
+            label = self.df['cat1'].iloc[idx]
             return {'image': image, 'label': label}
 
 

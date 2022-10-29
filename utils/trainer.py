@@ -46,19 +46,12 @@ class Trainer:
         self.tokenizer = AutoTokenizer.from_pretrained(args.text_model_name_or_path)
 
         # load dataset setting
-        self.make_datasets(splits, df, is_train=args.is_train)
+        self._make_datasets(splits, df, is_train=args.is_train)
 
-        if args.method == 'multimodal':
-            self.model = MultiModalModel(self.args)
-        elif args.method == 'nlp':
-            self.model = NLPModel(self.args)
-        elif args.method == 'image':
-            self.model = ImageModel(self.args)
-        else:
-            raise NotImplementedError('args.method 를 잘 선택 해주세요.')
+        self.model = self._get_model()
         self.model.to(args.device)
 
-        self.supervised_loss = self.get_loss()
+        self.supervised_loss = self._get_loss()
         self.rdrop_loss = RDropLoss()
 
         self.optimizer = self._get_optimizer()
@@ -71,7 +64,7 @@ class Trainer:
         self.best_valid_f1_score = 0
         self.best_model_folder = None
 
-    def make_datasets(self, splits, df, is_train):
+    def _make_datasets(self, splits, df, is_train):
         if is_train:
             train_idx, valid_idx = splits
             train_df = df.iloc[train_idx]
@@ -267,13 +260,36 @@ class Trainer:
 
         return preds_list, probs_list
 
-    def get_loss(self):
+    def _get_loss(self):
         if self.args.loss == 'LabelSmoothing':
             loss = LabelSmoothingLoss(classes=self.args.num_labels, smoothing=0.8)
         else:
             loss = nn.CrossEntropyLoss()
 
         return loss
+
+    def _get_model(self):
+        if self.args.is_train:
+            if self.args.method == 'multimodal':
+                model = MultiModalModel(self.args)
+            elif self.args.method == 'nlp':
+                model = NLPModel(self.args)
+            elif self.args.method == 'image':
+                model = ImageModel(self.args)
+            else:
+                raise NotImplementedError('args.method 를 잘 선택 해주세요.')
+        else:
+            if 'multimodal' == self.args.saved_model_path.split('_')[0]:
+                model = MultiModalModel(self.args)
+            elif 'nlp_only' in self.args.saved_model_path:
+                self.args.text_model_name_or_path = 'klue/roberta/large'
+                model = NLPModel(self.args)
+            elif 'nlp' == self.args.saved_model_path.split('_')[0]:
+                model = NLPModel(self.args)
+            else:
+                raise NotImplementedError('좀 더 고민해봐....... 에러처리 더 해야 할 듯')
+
+        return model
 
 
 class AverageMeter(object):

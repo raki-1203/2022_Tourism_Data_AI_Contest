@@ -26,6 +26,6 @@
 #python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 1 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_label_smoothing_cv --method nlp --text_model_name_or_path klue/roberta-base --max_seq_len 256 --train_batch_size 32 --loss LabelSmoothing
 #python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_label_smoothing_cv --predict_path ./predict/nlp_preprocessed_text_label_smoothing_cv --method nlp --text_model_name_or_path klue/roberta-base
 
-# multimodal CrossValidation Train
-python train.py --is_train --use_amp --device 1 --epochs 15 --accumulation_steps 8 --cv --wandb --output_path ./saved_model/multimodal_preprocessed_label_smoothing_cv --method multimodal --max_seq_len 256 --loss LabelSmoothing --train_batch_size 32
-python inference.py --device 1 --output_path ./saved_model/multimodal_preprocessed_label_smoothing_cv --predict_path ./predict/multimodal_preprocessed_label_smoothing_cv --method multimodal
+# Image cat1 Train
+python train.py --is_train --use_amp --device 1 --epoch 20 --accumulation_steps 1 --wandb --output_path ./saved_model/image_cat1 --method image --train_batch_size 32 --optimizer MADGRAD --image_model_name_or_path nfnet_f3 --lr 1e-6
+

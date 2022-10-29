@@ -26,9 +26,10 @@ if __name__ == '__main__':
 
         if args.wandb:
             name = f'{args.method}_{args.output_path.split("/")[-1]}_FOLD{args.fold}'
+            wandb_config = {k: v for k, v in vars(args).items() if 'idx' not in k}
             wandb.init(project='2022 관광데이터 AI 경진대회',
                        name=name,
-                       config=vars(args),
+                       config=wandb_config,
                        reinit=True)
 
         logger.info(f'>> Cross Validation {fold} Starts!')

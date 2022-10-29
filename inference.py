@@ -15,7 +15,12 @@ def main():
 
     df = get_df(args)
 
-    model_list = glob(os.path.join(args.output_path, '*'))
+    if args.output_path_list:
+        model_list = []
+        for output_path in args.output_path_list:
+            model_list += glob(os.path.join(output_path, '*'))
+    else:
+        model_list = glob(os.path.join(args.output_path, '*'))
     model_list = sorted(model_list)
 
     output_probs = np.zeros((df.shape[0], args.num_labels))

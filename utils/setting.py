@@ -50,6 +50,7 @@ class Arguments:
         self.add_argument('--image_path_to_train_data', type=str, default='./data/image/train')
         self.add_argument('--image_path_to_test_data', type=str, default='./data/image/test')
         self.add_argument('--output_path', type=str, default='./saved_model')
+        self.add_argument('--output_path_list', type=str, nargs='+', default=None)
         self.add_argument('--predict_path', type=str, default='./predict')
 
     def print_args(self, args):
@@ -72,13 +73,21 @@ class Arguments:
             args.device = torch.device('cuda:1')
 
         df = pd.read_csv(args.text_path_to_train_data)
-        label_to_idx = {cat: i for i, cat in enumerate(df['cat3'].unique())}
-        idx_to_label = {v: k for k, v in label_to_idx.items()}
+        cat1_to_idx = {cat: i for i, cat in enumerate(df['cat1'].unique())}
+        idx_to_cat1 = {v: k for k, v in cat1_to_idx.items()}
+        cat2_to_idx = {cat: i for i, cat in enumerate(df['cat2'].unique())}
+        idx_to_cat2 = {v: k for k, v in cat2_to_idx.items()}
+        cat3_to_idx = {cat: i for i, cat in enumerate(df['cat3'].unique())}
+        idx_to_cat3 = {v: k for k, v in cat3_to_idx.items()}
 
         self.print_args(args)
 
-        args.label_to_idx = label_to_idx
-        args.idx_to_label = idx_to_label
+        args.cat1_to_idx = cat1_to_idx
+        args.idx_to_cat1 = idx_to_cat1
+        args.cat2_to_idx = cat2_to_idx
+        args.idx_to_cat2 = idx_to_cat2
+        args.cat3_to_idx = cat3_to_idx
+        args.idx_to_cat3 = idx_to_cat3
 
         return args
 
