@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import AutoTokenizer
 from albumentations.pytorch.transforms import ToTensorV2
 
-from utils.custom_dataset import MultiModelDataset, NLPDataset, ImageDataset
-from utils.custom_model import MultiModalModel, NLPModel, ImageModel
+from utils.custom_dataset import MultiModelDataset, NLPDataset, ImageDataset, NLPCatDataset
+from utils.custom_model import MultiModalModel, NLPModel, ImageModel, NLPCatModel
 from utils.loss import RDropLoss, LabelSmoothingLoss
 from utils.optimizer import MADGRAD
 
@@ -73,6 +73,9 @@ class Trainer:
             if self.args.method == 'multimodal':
                 train_dataset = MultiModelDataset(self.args, train_df, self.tokenizer, self.train_transform)
                 valid_dataset = MultiModelDataset(self.args, valid_df, self.tokenizer, self.valid_transform)
+            elif self.args.method == 'nlp_cat' or 'cat' in self.args.output_path:
+                train_dataset = NLPCatDataset(self.args, train_df, self.tokenizer)
+                valid_dataset = NLPCatDataset(self.args, valid_df, self.tokenizer)
             elif self.args.method == 'nlp':
                 train_dataset = NLPDataset(self.args, train_df, self.tokenizer)
                 valid_dataset = NLPDataset(self.args, valid_df, self.tokenizer)
@@ -88,6 +91,8 @@ class Trainer:
         else:
             if self.args.method == 'multimodal':
                 test_dataset = MultiModelDataset(self.args, df, self.tokenizer, self.valid_transform, is_test=True)
+            elif self.args.method == 'nlp_cat' or 'cat' in self.args.output_path:
+                test_dataset = NLPCatDataset(self.args, df, self.tokenizer, is_test=True)
             elif self.args.method == 'nlp':
                 test_dataset = NLPDataset(self.args, df, self.tokenizer, is_test=True)
             elif self.args.method == 'image':
@@ -111,23 +116,24 @@ class Trainer:
             total_step = epoch * self.step_per_epoch + step
 
             with torch.cuda.amp.autocast(enabled=self.args.use_amp):
-                logits = self.model(batch)
+                if 'cat' in self.args.method:
+                    cat1_logits, cat2_logits, cat3_logits = self.model(batch)
 
-                loss = self.supervised_loss(logits, batch['label'])
-                if 'rdrop' in self.args.method:
-                    logits_2 = self.model(batch)
-
-                    ce_loss = (self.supervised_loss(logits, batch['label']) +
-                               self.supervised_loss(logits_2, batch['label'])) * 0.5
-                    kl_loss = self.rdrop_loss(logits, logits_2)
-                    loss = ce_loss + kl_loss * self.args.rdrop_coef
+                    cat1_loss = self.supervised_loss(cat1_logits, batch['cat1'])
+                    cat2_loss = self.supervised_loss(cat2_logits, batch['cat2'])
+                    cat3_loss = self.supervised_loss(cat3_logits, batch['cat3'])
+                    loss = cat1_loss + cat2_loss + cat3_loss
+                    preds = torch.argmax(cat3_logits, dim=-1)
+                else:
+                    logits = self.model(batch)
+                    loss = self.supervised_loss(logits, batch['cat3'])
+                    preds = torch.argmax(logits, dim=-1)
 
                 self.scaler.scale(loss).backward()
 
-                preds = torch.argmax(logits, dim=-1)
-                acc = accuracy_score(batch['label'].cpu(), preds.cpu())
+                acc = accuracy_score(batch['cat3'].cpu(), preds.cpu())
 
-                if (step + 1) % self.args.accumulation_steps == 0:
+                if (total_step + 1) % self.args.accumulation_steps == 0:
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad()
@@ -135,7 +141,7 @@ class Trainer:
                 self.train_loss.update(loss.item(), self.args.train_batch_size)
                 self.train_acc.update(acc, self.args.train_batch_size)
 
-                if total_step != 0 and total_step % self.args.eval_steps == 0:
+                if total_step != 0 and total_step % (self.args.eval_steps * self.args.accumulation_steps) == 0:
                     valid_acc, valid_f1_score, valid_loss = self.validate()
 
                     self.scheduler.step(valid_acc)
@@ -174,14 +180,22 @@ class Trainer:
             for step, batch in enumerate(valid_iterator):
                 batch = self.batch_to_device(batch)
 
-                logits = self.model(batch)
+                if 'cat' in self.args.method:
+                    cat1_logits, cat2_logits, cat3_logits = self.model(batch)
 
-                loss = self.supervised_loss(logits, batch['label'])
+                    cat1_loss = self.supervised_loss(cat1_logits, batch['cat1'])
+                    cat2_loss = self.supervised_loss(cat2_logits, batch['cat2'])
+                    cat3_loss = self.supervised_loss(cat3_logits, batch['cat3'])
+                    loss = cat1_loss + cat2_loss + cat3_loss
+                    preds = torch.argmax(cat3_logits, dim=-1)
+                else:
+                    logits = self.model(batch)
+                    loss = self.supervised_loss(logits, batch['cat3'])
+                    preds = torch.argmax(logits, dim=-1)
 
-                preds = torch.argmax(logits, dim=-1)
                 preds_list.append(preds.detach().cpu().numpy())
-                label_list.append(batch['label'].detach().cpu().numpy())
-                acc = accuracy_score(batch['label'].cpu(), preds.cpu())
+                label_list.append(batch['cat3'].detach().cpu().numpy())
+                acc = accuracy_score(batch['cat3'].cpu(), preds.cpu())
 
                 valid_loss.update(loss.item(), self.args.valid_batch_size)
                 valid_acc.update(acc, self.args.valid_batch_size)
@@ -272,6 +286,8 @@ class Trainer:
         if self.args.is_train:
             if self.args.method == 'multimodal':
                 model = MultiModalModel(self.args)
+            elif self.args.method == 'nlp_cat' or 'cat' in self.args.output_path:
+                model = NLPCatModel(self.args)
             elif self.args.method == 'nlp':
                 model = NLPModel(self.args)
             elif self.args.method == 'image':
@@ -281,9 +297,12 @@ class Trainer:
         else:
             if 'multimodal' == self.args.saved_model_path.split('_')[0]:
                 model = MultiModalModel(self.args)
-            elif 'nlp_only' in self.args.saved_model_path:
-                self.args.text_model_name_or_path = 'klue/roberta/large'
+            elif 'nlp_only' in self.args.saved_model_path or 'large' in self.args.saved_model_path:
+                self.args.text_model_name_or_path = 'klue/roberta-large'
                 model = NLPModel(self.args)
+            elif 'cat' in self.args.saved_model_path:
+                self.args.text_model_name_or_path = 'klue/roberta-large'
+                model = NLPCatModel(self.args)
             elif 'nlp' == self.args.saved_model_path.split('_')[0]:
                 model = NLPModel(self.args)
             else:

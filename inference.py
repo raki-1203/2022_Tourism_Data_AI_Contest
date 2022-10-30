@@ -36,7 +36,7 @@ def main():
 
     output_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'data/sample_submission.csv'))
     output_df['cat3'] = pred_answer
-    output_df['cat3'] = output_df['cat3'].map(args.idx_to_label)
+    output_df['cat3'] = output_df['cat3'].map(args.idx_to_cat3)
 
     if not os.path.exists(args.predict_path):
         os.makedirs(args.predict_path, exist_ok=True)

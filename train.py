@@ -16,7 +16,7 @@ if __name__ == '__main__':
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=args.seed)
 
     fold_valid_f1_score_list = []
-    for fold, splits in enumerate(skf.split(df, df['label']), start=1):
+    for fold, splits in enumerate(skf.split(df, df['cat3']), start=1):
         args.fold = fold
 
         # cv=True 인 경우 5폴드를 모두 실행

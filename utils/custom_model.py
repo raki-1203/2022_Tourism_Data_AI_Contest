@@ -29,6 +29,39 @@ class NLPModel(nn.Module):
         return x
 
 
+class NLPCatModel(nn.Module):
+
+    def __init__(self, args):
+        super(NLPCatModel, self).__init__()
+        self.args = args
+
+        self.text_model = RobertaModel.from_pretrained(args.text_model_name_or_path)
+
+        self.cat1_config = AutoConfig.from_pretrained(args.text_model_name_or_path, num_labels=6)
+        self.cat1_classifier = RobertaClassificationHead(self.cat1_config)
+        self.cat2_config = AutoConfig.from_pretrained(args.text_model_name_or_path, num_labels=18)
+        self.cat2_config.hidden_size += 6
+        self.cat2_classifier = RobertaClassificationHead(self.cat2_config)
+        self.cat3_config = AutoConfig.from_pretrained(args.text_model_name_or_path, num_labels=args.num_labels)
+        self.cat3_config.hidden_size += 6 + 18
+        self.cat3_classifier = RobertaClassificationHead(self.cat3_config)
+
+    def forward(self, batch):
+        text_output = self.text_model(input_ids=batch['input_ids'],
+                                      attention_mask=batch['attention_mask'],
+                                      token_type_ids=batch['token_type_ids'] if self.args.token_type_ids else None)
+
+        # text last_hidden_state.shape : (BS, SEQ_LEN, HIDDEN)
+        text_last_hidden_state = text_output.last_hidden_state
+        cat1_x = self.cat1_classifier(text_last_hidden_state)
+        x = torch.cat((cat1_x, text_last_hidden_state[:, 0, :]), dim=1).unsqueeze(1)
+        cat2_x = self.cat2_classifier(x)
+        x = torch.cat((cat1_x, cat2_x, text_last_hidden_state[:, 0, :]), dim=1).unsqueeze(1)
+        cat3_x = self.cat3_classifier(x)
+
+        return cat1_x, cat2_x, cat3_x
+
+
 class ImageModel(nn.Module):
 
     def __init__(self, args):
