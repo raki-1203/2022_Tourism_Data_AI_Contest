@@ -35,8 +35,8 @@ class MultiModelDataset(Dataset):
         if self.is_test:
             return {'text': text, 'image': image}
         else:
-            label = self.df['label'].iloc[idx]
-            return {'text': text, 'image': image, 'label': label}
+            cat3 = self.df['cat3'].iloc[idx]
+            return {'text': text, 'image': image, 'cat3': cat3}
 
 
 class CollateMultiModal:
@@ -53,7 +53,7 @@ class CollateMultiModal:
         b_input_token_type_ids = []
         b_input_images = []
         if not self.is_test:
-            b_labels = []
+            b_cat3 = []
 
         for b in batches:
             text = b['text']
@@ -72,7 +72,7 @@ class CollateMultiModal:
             b_input_images.append(b['image'])
 
             if not self.is_test:
-                b_labels.append(b['label'])
+                b_cat3.append(b['cat3'])
 
         t_input_ids = torch.stack(b_input_ids)  # List[Tensor] -> Tensor List
         t_input_attention_mask = torch.stack(b_input_attention_mask)  # List[Tensor] -> Tensor List
@@ -82,9 +82,9 @@ class CollateMultiModal:
             return {'input_ids': t_input_ids, 'attention_mask': t_input_attention_mask,
                     'token_type_ids': t_input_token_type_ids, 'image': t_input_images}
         else:
-            t_labels = torch.tensor(b_labels)  # List -> Tensor
+            t_cat3 = torch.tensor(b_cat3)  # List -> Tensor
             return {'input_ids': t_input_ids, 'attention_mask': t_input_attention_mask,
-                    'token_type_ids': t_input_token_type_ids, 'image': t_input_images, 'label': t_labels}
+                    'token_type_ids': t_input_token_type_ids, 'image': t_input_images, 'cat3': t_cat3}
 
 
 class NLPDataset(Dataset):
@@ -110,8 +110,8 @@ class NLPDataset(Dataset):
         if self.is_test:
             return {'text': text}
         else:
-            label = self.df['label'].iloc[idx]
-            return {'text': text, 'label': label}
+            label = self.df['cat3'].iloc[idx]
+            return {'text': text, 'cat3': label}
 
 
 class CollateNLP:
@@ -127,7 +127,7 @@ class CollateNLP:
         b_input_attention_mask = []
         b_input_token_type_ids = []
         if not self.is_test:
-            b_labels = []
+            b_cat3 = []
 
         for b in batches:
             text = b['text']
@@ -143,7 +143,7 @@ class CollateNLP:
             b_input_attention_mask.append(torch.tensor(input_attention_mask, dtype=torch.long))
             b_input_token_type_ids.append(torch.tensor(input_token_type_ids, dtype=torch.long))
             if not self.is_test:
-                b_labels.append(b['label'])
+                b_cat3.append(b['cat3'])
 
         t_input_ids = torch.stack(b_input_ids)  # List[Tensor] -> Tensor List
         t_input_attention_mask = torch.stack(b_input_attention_mask)  # List[Tensor] -> Tensor List
@@ -152,9 +152,9 @@ class CollateNLP:
             return {'input_ids': t_input_ids, 'attention_mask': t_input_attention_mask,
                     'token_type_ids': t_input_token_type_ids}
         else:
-            t_labels = torch.tensor(b_labels)  # List -> Tensor
+            t_cat3 = torch.tensor(b_cat3)  # List -> Tensor
             return {'input_ids': t_input_ids, 'attention_mask': t_input_attention_mask,
-                    'token_type_ids': t_input_token_type_ids, 'label': t_labels}
+                    'token_type_ids': t_input_token_type_ids, 'cat3': t_cat3}
 
 
 class NLPCatDataset(Dataset):
@@ -233,58 +233,3 @@ class CollateNLPCat:
             t_cat3 = torch.tensor(b_cat3)  # List -> Tensor
             return {'input_ids': t_input_ids, 'attention_mask': t_input_attention_mask,
                     'token_type_ids': t_input_token_type_ids, 'cat1': t_cat1, 'cat2': t_cat2, 'cat3': t_cat3}
-
-
-class ImageDataset(Dataset):
-
-    def __init__(self, args, df, transforms, is_test=False):
-        self.df = df
-        self.transforms = transforms
-        self.is_test = is_test
-        self.collate_fn = CollateImage(is_test)
-        self.loader = DataLoader(dataset=self,
-                                 batch_size=args.train_batch_size if not is_test else args.valid_batch_size,
-                                 shuffle=True if not is_test else False,
-                                 sampler=None,
-                                 collate_fn=self.collate_fn)
-
-    def __len__(self):
-        return len(self.df)
-
-    def __getitem__(self, idx):
-        # Image
-        img_path = self.df['img_path'].iloc[idx]
-        image = cv2.imread(img_path)
-
-        if self.transforms is not None:
-            image = self.transforms(image=image)['image']
-
-        # Label
-        if self.is_test:
-            return {'image': image}
-        else:
-            label = self.df['cat1'].iloc[idx]
-            return {'image': image, 'label': label}
-
-
-class CollateImage:
-
-    def __init__(self, is_test):
-        self.is_test = is_test
-
-    def __call__(self, batches):
-        b_input_images = []
-        if not self.is_test:
-            b_labels = []
-
-        for b in batches:
-            b_input_images.append(b['image'])
-            if not self.is_test:
-                b_labels.append(b['label'])
-
-        t_input_images = torch.stack(b_input_images)  # List[Tensor] -> Tensor List
-        if self.is_test:
-            return {'image': t_input_images}
-        else:
-            t_labels = torch.tensor(b_labels)  # List -> Tensor
-            return {'image': t_input_images, 'label': t_labels}

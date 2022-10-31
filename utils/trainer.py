@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import AutoTokenizer
 from albumentations.pytorch.transforms import ToTensorV2
 
-from utils.custom_dataset import MultiModelDataset, NLPDataset, ImageDataset, NLPCatDataset
-from utils.custom_model import MultiModalModel, NLPModel, ImageModel, NLPCatModel
+from utils.custom_dataset import MultiModelDataset, NLPDataset, NLPCatDataset
+from utils.custom_model import MultiModalModel, NLPModel, NLPCatModel
 from utils.loss import RDropLoss, LabelSmoothingLoss
 from utils.optimizer import MADGRAD
 
@@ -79,9 +79,6 @@ class Trainer:
             elif self.args.method == 'nlp':
                 train_dataset = NLPDataset(self.args, train_df, self.tokenizer)
                 valid_dataset = NLPDataset(self.args, valid_df, self.tokenizer)
-            elif self.args.method == 'image':
-                train_dataset = ImageDataset(self.args, train_df, self.train_transform)
-                valid_dataset = ImageDataset(self.args, valid_df, self.valid_transform)
             else:
                 raise NotImplementedError('args.method 를 잘 선택 해주세요.')
             self.train_loader = train_dataset.loader
@@ -95,8 +92,6 @@ class Trainer:
                 test_dataset = NLPCatDataset(self.args, df, self.tokenizer, is_test=True)
             elif self.args.method == 'nlp':
                 test_dataset = NLPDataset(self.args, df, self.tokenizer, is_test=True)
-            elif self.args.method == 'image':
-                test_dataset = ImageDataset(self.args, df, self.valid_transform, is_test=True)
             else:
                 raise NotImplementedError('args.method 를 잘 선택 해주세요.')
             self.test_loader = test_dataset.loader
@@ -180,7 +175,7 @@ class Trainer:
             for step, batch in enumerate(valid_iterator):
                 batch = self.batch_to_device(batch)
 
-                if 'cat' in self.args.method:
+                if 'cat' in self.args.output_path:
                     cat1_logits, cat2_logits, cat3_logits = self.model(batch)
 
                     cat1_loss = self.supervised_loss(cat1_logits, batch['cat1'])
@@ -264,7 +259,10 @@ class Trainer:
             for step, batch in enumerate(test_iterator):
                 batch = self.batch_to_device(batch)
 
-                logits = self.model(batch)
+                if 'cat' in self.args.saved_model_path:
+                    _, _, logits = self.model(batch)
+                else:
+                    logits = self.model(batch)
                 probs_list.append(logits.detach().cpu().numpy())
                 preds = torch.argmax(logits, dim=-1)
                 preds_list.append(preds.detach().cpu().numpy())
@@ -290,20 +288,19 @@ class Trainer:
                 model = NLPCatModel(self.args)
             elif self.args.method == 'nlp':
                 model = NLPModel(self.args)
-            elif self.args.method == 'image':
-                model = ImageModel(self.args)
             else:
                 raise NotImplementedError('args.method 를 잘 선택 해주세요.')
         else:
-            if 'multimodal' == self.args.saved_model_path.split('_')[0]:
+            if 'multimodal' in self.args.saved_model_path:
                 model = MultiModalModel(self.args)
-            elif 'nlp_only' in self.args.saved_model_path or 'large' in self.args.saved_model_path:
-                self.args.text_model_name_or_path = 'klue/roberta-large'
-                model = NLPModel(self.args)
             elif 'cat' in self.args.saved_model_path:
                 self.args.text_model_name_or_path = 'klue/roberta-large'
                 model = NLPCatModel(self.args)
-            elif 'nlp' == self.args.saved_model_path.split('_')[0]:
+            elif 'nlp_only' in self.args.saved_model_path or 'large' in self.args.saved_model_path:
+                self.args.text_model_name_or_path = 'klue/roberta-large'
+                model = NLPModel(self.args)
+            elif 'nlp' in self.args.saved_model_path or 'base' in self.args.saved_model_path:
+                self.args.text_model_name_or_path = 'klue/roberta-base'
                 model = NLPModel(self.args)
             else:
                 raise NotImplementedError('좀 더 고민해봐....... 에러처리 더 해야 할 듯')

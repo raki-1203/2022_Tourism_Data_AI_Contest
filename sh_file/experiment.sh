@@ -32,7 +32,10 @@
 # nlp preprocessed text klue/roberta-base model cat1, cat2, cat3 CrossValidation Train
 #python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 1 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_base_cat1_cat2_cat3_cv --method nlp --max_seq_len 256 --train_batch_size 32
 #python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_base_cat1_cat2_cat3_cv --predict_path ./predict/nlp_preprocessed_text_base_cat1_cat2_cat3_cv --method nlp
-#
+
 # nlp preprocessed text klue/roberta-large model cat1, cat2, cat3 CrossValidation Train
-python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 8 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --method nlp --max_seq_len 256 --train_batch_size 4 --text_model_name_or_path klue/roberta-large
-python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --predict_path ./predict/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --method nlp
+#python train.py --is_train --use_amp --device 1 --epochs 20 --accumulation_steps 8 --cv --wandb --output_path ./saved_model/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --method nlp --max_seq_len 256 --train_batch_size 4 --text_model_name_or_path klue/roberta-large
+#python inference.py --device 1 --output_path ./saved_model/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --predict_path ./predict/nlp_preprocessed_text_large_cat1_cat2_cat3_cv --method nlp
+
+# Final Ensemble
+python inference.py --device 1 --output_path_list ./saved_model/nlp_preprocessed_text_large_cat1_cat2_cat3_cv ./saved_model/nlp_preprocessed_text_large_seed43_cv --predict_path ./predict/final_ensemble --method nlp
